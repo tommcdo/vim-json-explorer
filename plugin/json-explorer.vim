@@ -12,10 +12,10 @@ return pretty
 endfunction
 
 function! s:json_detect()
-	let buf_save = @j
+	let reg_save = @j
 	let json = 0
 	let [startline, startcol, endline, endcol] = [-1, -1, -1, -1]
-	let cursor_save = getpos(".")
+	let [_a, origline, origcol, _b] = getpos(".")
 	let flags = 'bcW'
 	let found = 0
 	while search('[[{]', flags)
@@ -26,19 +26,22 @@ function! s:json_detect()
 			break
 		endif
 		let json = s:valid_json(@j)
-		if type(json) == type(0)
+		if type(json) == type(0) && json == 0
 			break
 		endif
-		let found = 1
+		let found = json
 		let [a, startline, startcol, b] = getpos("'[")
 		let [a, endline, endcol, b] = getpos("']")
 	endwhile
-	let @j = buf_save
-	if found == 0
-		call cursor(cursor_save)
+	if endline < origline || (endline == origline && endcol < origcol)
+		let found = 0
+	endif
+	let @j = reg_save
+	call cursor(origline, origcol)
+	if type(found) == type(0) && found == 0
 		return 0
 	else
-		return [startline, startcol, endline, endcol, json]
+		return [startline, startcol, endline, endcol, found]
 	endif
 endfunction
 
@@ -50,10 +53,10 @@ function! s:json_explorer()
 	let json = s:json_detect()
 	if type(json) == type([])
 		let [startline, startcol, endline, endcol, pretty] = json
-		let buf_save = @j
+		let reg_save = @j
 		let @j = pretty
 		call s:json_window()
-		let @j = buf_save
+		let @j = reg_save
 	endif
 endfunction
 
@@ -70,11 +73,11 @@ endfunction
 		"endif
 		"let [ostartl, ostartc, oendl, oendc] = [startl, startc, endl, endc]
 	"endwhile
-	"let buf_save = @j
+	"let reg_save = @j
 	"normal "jy
 	"call s:python('j')
 	"call s:json_window()
-	"let @j = buf_save
+	"let @j = reg_save
 "endfunction
 
 function! s:json_window()
@@ -86,4 +89,4 @@ function! s:json_window()
 	normal "jp
 endfunction
 
-nnoremap <C-l> :call <SID>json_explorer()<CR>
+nnoremap <silent> <C-l> :call <SID>json_explorer()<CR>
