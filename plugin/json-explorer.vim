@@ -4,9 +4,9 @@ import json, vim
 try:
 	j = json.loads(vim.eval("a:str"))
 	pretty = json.dumps(j, indent=4, separators=(',', ': '))
+	vim.command("let pretty = '%s'" % pretty)
 except ValueError:
-	pretty = ''
-vim.command("let pretty = '%s'" % pretty)
+	vim.command("let pretty = 0")
 EOF
 return pretty
 endfunction
@@ -16,26 +16,27 @@ function! s:json_detect()
 	let json = 0
 	let [startline, startcol, endline, endcol] = [-1, -1, -1, -1]
 	let cursor_save = getpos(".")
-	while search('[[{]', 'bcW')
+	let flags = 'bcW'
+	let found = 0
+	while search('[[{]', flags)
+		let flags = 'bW'
 		let @j = ''
 		silent normal "jy%
 		if @j == ''
-			echo "No string yanked"
 			break
 		endif
 		let json = s:valid_json(@j)
-		if json == ''
-			echo "Invalid JSON: ".@j
+		if type(json) == type(0)
 			break
 		endif
-		echo "Valid JSON, it seems"
+		let found = 1
 		let [a, startline, startcol, b] = getpos("'[")
 		let [a, endline, endcol, b] = getpos("']")
 	endwhile
 	let @j = buf_save
-	if [startline, startcol, endline, endcol] == [-1, -1, -1, -1]
+	if found == 0
 		call cursor(cursor_save)
-		return [-1, -1, -1, -1, '']
+		return 0
 	else
 		return [startline, startcol, endline, endcol, json]
 	endif
@@ -47,7 +48,7 @@ endfunction
 
 function! s:json_explorer()
 	let json = s:json_detect()
-	if json != [-1, -1, -1, -1, '']
+	if type(json) == type([])
 		let [startline, startcol, endline, endcol, pretty] = json
 		let buf_save = @j
 		let @j = pretty
