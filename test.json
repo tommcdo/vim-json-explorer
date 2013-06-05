@@ -1,3 +1,4 @@
 {A string within another... {"foo":
 	{"bar":[1,2,3]},"boo":
-		"baz"}, like that?}
+		"baz", "stuff": null}, like that?}
+["this","is","one","too"]
