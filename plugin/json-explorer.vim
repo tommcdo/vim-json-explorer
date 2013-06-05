@@ -85,7 +85,7 @@ function! s:json_window()
 	below new
 	set buftype=nofile
 	set filetype=javascript
-	nnoremap <buffer> q :q<CR>
+	nnoremap <silent> <buffer> q :q<CR>
 	normal "jp
 endfunction
 
