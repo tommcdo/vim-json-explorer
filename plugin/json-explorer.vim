@@ -22,26 +22,46 @@ function! s:json_detect()
 		let flags = 'bW'
 		let @j = ''
 		silent normal "jy%
+		let [a, sline, scol, b] = getpos("'[")
+		let [a, eline, ecol, b] = getpos("']")
 		if @j == ''
 			break
 		endif
+		if s:compare_position(origline, origcol, eline, ecol) < 0
+			break
+		endif
+		let [startline, startcol, endline, endcol] = [sline, scol, eline, ecol]
 		let json = s:valid_json(@j)
 		if type(json) == type(0) && json == 0
 			break
 		endif
 		let found = json
-		let [a, startline, startcol, b] = getpos("'[")
-		let [a, endline, endcol, b] = getpos("']")
 	endwhile
-	if endline < origline || (endline == origline && endcol < origcol)
-		let found = 0
-	endif
+	"if s:compare_position(endline, endcol, origline, origcol) < 0
+		"let found = 0
+	"endif
 	let @j = reg_save
 	call cursor(origline, origcol)
 	if type(found) == type(0) && found == 0
 		return 0
 	else
 		return [startline, startcol, endline, endcol, found]
+	endif
+endfunction
+
+function! s:compare_position(aline, acol, bline, bcol)
+	if (a:aline < a:bline)
+		return -1
+	elseif (a:aline > a:bline)
+		return 1
+	else
+		if a:acol < a:bcol
+			return -1
+		elseif a:acol > a:bcol
+			return 1
+		else
+			return 0
+		endif
 	endif
 endfunction
 
