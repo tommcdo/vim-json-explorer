@@ -1,18 +1,11 @@
 " Helper functions {{{1
 
 function! s:compare_pos(x, y)
-	if (a:x[1] < a:y[1])
-		return -1
-	elseif (a:x[1] > a:y[1])
-		return 1
+	let ld = a:x[0] - a:y[0]
+	if ld == 0
+		return a:x[1] - a:y[1]
 	else
-		if a:x[2] < a:y[2]
-			return -1
-		elseif a:x[2] > a:y[2]
-			return 1
-		else
-			return 0
-		endif
+		return ld
 	endif
 endfunction
 
@@ -66,7 +59,7 @@ function! s:json_detect(pos)
 	" TODO: Use searchpair() to find surrounding [] and {}
 
 	" Restore cursor position that was saved.
-	call cursor(original_line, original_column)
+	call cursor(cursor_save[1], cursor_save[2])
 endfunction
 
 function! s:json_explorer(pos)
