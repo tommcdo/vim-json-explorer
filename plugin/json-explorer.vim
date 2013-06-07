@@ -29,7 +29,6 @@ function! s:getpos(pos)
 endfunction
 
 " }}}1
-
 " Python {{{1
 
 function! s:valid_json(str)
@@ -46,7 +45,6 @@ return pretty
 endfunction
 
 " }}}1
-
 " Main plugin functions {{{1
 
 function! s:json_detect(pos)
@@ -80,7 +78,6 @@ function! s:json_window(json)
 endfunction
 
 " }}}1
-
 " Globally available functions {{{1
 
 function! ComparePos(x, y)
@@ -94,3 +91,5 @@ endfunction
 " }}}1
 
 nnoremap <silent> <C-l> :call <SID>json_explorer(".")<CR>
+
+" vim: fdm=marker:
