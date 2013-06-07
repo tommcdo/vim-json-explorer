@@ -1,3 +1,44 @@
+" Helper functions {{{1
+
+function! s:compare_pos(x, y)
+	if (a:x[1] < a:y[1])
+		return -1
+	elseif (a:x[1] > a:y[1])
+		return 1
+	else
+		if a:x[2] < a:y[2]
+			return -1
+		elseif a:x[2] > a:y[2]
+			return 1
+		else
+			return 0
+		endif
+	endif
+endfunction
+
+function! s:range_contains(range, start, end)
+	return s:compare_pos(a:start, a:range) <= 0 && s:compare_pos(a:range, a:end) <= 0
+endfunction
+
+function! s:getpos(pos)
+	if type(a:pos) == type([])
+		if len(pos) == 2
+			let [line, column] = a:pos
+		elseif len(pos) == 4
+			let [_, line, column, _] = a:pos
+		else
+			let [line, column] = [0, 0]
+		endif
+	else
+		let [_, line, column, _] = getpos(a:pos)
+	endif
+	return [line, column]
+endfunction
+
+" }}}1
+
+" Python {{{1
+
 function! s:valid_json(str)
 python <<EOF
 import json, vim
@@ -11,102 +52,52 @@ EOF
 return pretty
 endfunction
 
-function! s:json_detect()
-	let reg_save = @j
-	let json = 0
-	let [startline, startcol, endline, endcol] = [-1, -1, -1, -1]
-	let [_a, origline, origcol, _b] = getpos(".")
-	let flags = 'bcW'
-	let found = 0
-	while search('[[{]', flags)
-		let flags = 'bW'
-		let @j = ''
-		silent normal "jy%
-		let [a, sline, scol, b] = getpos("'[")
-		let [a, eline, ecol, b] = getpos("']")
-		if @j == ''
-			break
-		endif
-		if s:compare_position(origline, origcol, eline, ecol) < 0
-			break
-		endif
-		let [startline, startcol, endline, endcol] = [sline, scol, eline, ecol]
-		let json = s:valid_json(@j)
-		if type(json) == type(0) && json == 0
-			break
-		endif
-		let found = json
-	endwhile
-	"if s:compare_position(endline, endcol, origline, origcol) < 0
-		"let found = 0
-	"endif
-	let @j = reg_save
-	call cursor(origline, origcol)
-	if type(found) == type(0) && found == 0
-		return 0
-	else
-		return [startline, startcol, endline, endcol, found]
+" }}}1
+
+" Main plugin functions {{{1
+
+function! s:json_detect(pos)
+	" Save current cursor position in case we jump around.
+	let cursor_save = getpos()
+
+	" Obtain line number and column
+	let [original_line, original_column] = s:getpos(a:pos)
+
+	" TODO: Use searchpair() to find surrounding [] and {}
+
+	" Restore cursor position that was saved.
+	call cursor(original_line, original_column)
+endfunction
+
+function! s:json_explorer(pos)
+	let json = s:json_detect(a:pos)
+	if type(json) == type([])
+		let [startline, startcol, endline, endcol, pretty] = json
+		call s:json_window(pretty)
 	endif
 endfunction
 
-function! s:compare_position(aline, acol, bline, bcol)
-	if (a:aline < a:bline)
-		return -1
-	elseif (a:aline > a:bline)
-		return 1
-	else
-		if a:acol < a:bcol
-			return -1
-		elseif a:acol > a:bcol
-			return 1
-		else
-			return 0
-		endif
-	endif
+function! s:json_window(json)
+	" For now, just assume contents is in the @j buffer...
+	below new
+	set buftype=nofile
+	set filetype=javascript
+	nnoremap <silent> <buffer> q :q<CR>
+	call append(0, json)
+endfunction
+
+" }}}1
+
+" Globally available functions {{{1
+
+function! ComparePos(x, y)
+	return s:compare_pos(a:x, a:y)
 endfunction
 
 function! ValidJson(s)
 	return s:valid_json(a:s)
 endfunction
 
-function! s:json_explorer()
-	let json = s:json_detect()
-	if type(json) == type([])
-		let [startline, startcol, endline, endcol, pretty] = json
-		let reg_save = @j
-		let @j = pretty
-		call s:json_window()
-		let @j = reg_save
-	endif
-endfunction
+" }}}1
 
-"function! s:json_detect()
-	"" Rudimentary attempt for now...
-	"let [ostartl, ostartc, oendl, oendc] = [-1, -1, -1, -1]
-	"normal v
-	"while 1
-		"normal a{
-		"let [a, startl, startc, b] = getpos("'<")
-		"let [a, endl, endc, b] = getpos("'>")
-		"if [ostartl, ostartc, oendl, oendc] == [startl, startc, endl, endc]
-			"break
-		"endif
-		"let [ostartl, ostartc, oendl, oendc] = [startl, startc, endl, endc]
-	"endwhile
-	"let reg_save = @j
-	"normal "jy
-	"call s:python('j')
-	"call s:json_window()
-	"let @j = reg_save
-"endfunction
-
-function! s:json_window()
-	" For now, just assume contents is in the @j buffer...
-	below new
-	set buftype=nofile
-	set filetype=javascript
-	nnoremap <silent> <buffer> q :q<CR>
-	normal "jp
-endfunction
-
-nnoremap <silent> <C-l> :call <SID>json_explorer()<CR>
+nnoremap <silent> <C-l> :call <SID>json_explorer(".")<CR>
