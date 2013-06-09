@@ -11,7 +11,7 @@ let s:line_pointer = {}
 
 function! s:element(type, value, args)
 	let options = {
-		\ "open": 1
+		\ "open": 0
 	\ }
 	call extend(options, get(a:args, 0, {}))
 	return [a:type, a:value, options]
@@ -52,14 +52,14 @@ let s:json_object =
 		\ ["name", s:object([
 			\ ["first", s:string("Tom")],
 			\ ["second", s:string("McDonald")]
-		\ ], {"open": 1})],
+		\ ])],
 		\ ["color", s:null()],
 		\ ["age", s:number("25")],
 		\ ["languages", s:array([
 			\ s:string("PHP"),
 			\ s:string("JavaScript"),
 			\ s:string("VimL")
-		\ ], {"open": 1})]
+		\ ])]
 	\ ])
 
 function! s:next_key(path)
@@ -71,6 +71,14 @@ endfunction
 
 function! s:append_key(path)
 	return a:path + [0]
+endfunction
+
+function! s:remove_key(path)
+	if a:path == []
+		return 0
+	else
+		return a:path[:-2]
+	endif
 endfunction
 
 function! s:get_path(path)
@@ -93,6 +101,7 @@ function! s:set_option(path, key, value)
 endfunction
 
 function! s:reset_line()
+	let s:line_pointer = {}
 	let s:line_number = s:start_line_number
 endfunction
 
@@ -113,13 +122,17 @@ function! s:output_json(json, ...)
 	if a:0 >= 2
 		let depth = a:2
 	endif
+
 	let is_obj = 0
 	if a:0 >= 3
 		let is_obj = a:3
 	endif
 
-	call s:set_option(path, 'line', s:line_number)
-	let s:line_pointer[s:line_number] = path
+	let line_number = s:line_number
+	let pointer = s:get_path(path)
+	let pointer[2]['line'] = line_number
+	let pointer[2]['parent_path'] = s:remove_key(path)
+	let s:line_pointer[line_number] = pointer
 
 	let indent = repeat("\t", depth)
 	let result = ""
@@ -150,6 +163,7 @@ function! s:output_json(json, ...)
 				let path = s:next_key(path)
 			endfor
 			let result .= indent . "]"
+			let s:line_pointer[s:line_number] = line_number
 		else
 			let result .= "[...]"
 		endif
@@ -170,6 +184,7 @@ function! s:output_json(json, ...)
 				let path = s:next_key(path)
 			endfor
 			let result .= indent . "}"
+			let s:line_pointer[s:line_number] = line_number
 		else
 			let result .= "{...}"
 		endif
@@ -178,20 +193,72 @@ function! s:output_json(json, ...)
 	return result
 endfunction
 
-function! s:get_element(line)
-	return s:get_path(s:line_pointer[a:line])
+function! s:redraw(line)
+	call s:reset_line()
+	set modifiable
+	%d
+	call append(s:start_line_number - 1, split(s:output_json(s:json_object), "\n"))
+	set nomodifiable
+	call cursor(a:line, 0)
+endfunction
+
+function! s:get_line_number(args)
+	if len(a:args) > 0
+		if type(a:args[0]) == type(0)
+			let line = a:args[0]
+		elseif type(a:args[0]) == type([])
+			let line = a:args[0][1]
+		else
+			let line = getpos(a:args[0])[1]
+		endif
+	else
+		let line = getpos(".")[1]
+	endif
+	return line
+endfunction
+
+function! s:get_line_pointer(line)
+	let line = a:line
+	let pointer = s:line_pointer[line]
+	while type(pointer) == type(0)
+		let line = pointer
+		unlet pointer
+		let pointer = s:line_pointer[line]
+	endwhile
+	return [line, pointer]
+endfunction
+
+function! s:toggle_open(...)
+	let line = s:get_line_number(a:000)
+	let [line, pointer] = s:get_line_pointer(line)
+	if pointer[0] == "array" || pointer[0] == "object"
+		let pointer[2].open = 1 - pointer[2].open
+		call s:redraw(line)
+	endif
+endfunction
+
+function! s:close_parent(...)
+	let line = s:get_line_number(a:000)
+	let [line, pointer] = s:get_line_pointer(line)
+	if type(pointer[2].parent_path) == type([])
+		let parent = s:get_path(pointer[2].parent_path)
+		let parent[2].open = 0
+		call s:redraw(parent[2].line)
+	endif
 endfunction
 
 " Global functions for testing {{{1
 
 function! Test()
-	call s:reset_line()
 	below new
 	set buftype=nofile
 	set filetype=javascript
+	set cursorline
+	set nomodifiable
 	nnoremap <silent> <buffer> q :q<CR>
-	nnoremap <silent> <buffer> o :echo <SID>get_element(getpos(".")[1])<CR>
-	call append(0, split(s:output_json(s:json_object), "\n"))
+	nnoremap <silent> <buffer> o :<C-u>call <SID>toggle_open()<CR>
+	nnoremap <silent> <buffer> x :<C-u>call <SID>close_parent()<CR>
+	call s:redraw(1)
 endfunction
 
 function! TestRaw()
