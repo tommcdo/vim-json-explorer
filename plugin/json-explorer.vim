@@ -69,7 +69,6 @@ function! s:json_explorer(pos)
 endfunction
 
 function! s:json_window(json)
-	" For now, just assume contents is in the @j buffer...
 	below new
 	set buftype=nofile
 	set filetype=javascript
