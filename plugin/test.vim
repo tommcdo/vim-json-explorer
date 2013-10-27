@@ -277,7 +277,7 @@ function! Test()
 	set buftype=nofile
 	set filetype=javascript
 	set cursorline
-	set nomodifiable
+	setlocal nomodifiable
 	nnoremap <silent> <buffer> q :q<CR>
 	nnoremap <silent> <buffer> o :<C-u>call <SID>toggle_open()<CR>
 	nnoremap <silent> <buffer> x :<C-u>call <SID>close_parent()<CR>
